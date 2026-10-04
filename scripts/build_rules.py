@@ -117,6 +117,9 @@ def main():
     rules += [('IP-CIDR6' if ':' in network else 'IP-CIDR') + ',' + network
               for network in ordered_networks]
     (output / 'direct.list').write_text('\n'.join(rules) + '\n')
+    (output / 'direct.domains').write_text('\n'.join(sorted(exact) + ['.' + name for name in sorted(suffix)]) + '\n')
+    (output / 'direct.ipcidr').write_text('\n'.join(
+        ('IP-CIDR6' if ':' in network else 'IP-CIDR') + ',' + network for network in ordered_networks) + '\n')
     source = {'version': 3, 'rules': [{'domain': sorted(exact)},
                                      {'domain_suffix': sorted(suffix)},
                                      {'ip_cidr': ordered_networks}]}
@@ -128,12 +131,12 @@ def main():
         'counts': {'exact_domains': len(exact), 'suffix_domains': len(suffix), 'ip_prefixes': len(networks)},
         'excluded_overseas_domain_entries': excluded_count,
         'files': {name: hashlib.sha256((output / name).read_bytes()).hexdigest()
-                  for name in ['direct.list', 'direct.json']},
+                  for name in ['direct.list', 'direct.json', 'direct.domains', 'direct.ipcidr']},
         'application_or_country_groups_generated': False,
         'client_templates_generated': False,
     }
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    assert set(p.name for p in output.iterdir()) == {'direct.list', 'direct.json', 'manifest.json'}
+    assert set(p.name for p in output.iterdir()) == {'direct.list', 'direct.json', 'direct.domains', 'direct.ipcidr', 'manifest.json'}
     print(json.dumps(manifest['counts']))
 
 
