@@ -2,7 +2,7 @@
 
 本仓库基于 Loyalsoldier/surge-rules，只生成国内域名、国内 IP 及本地网络的直连名单。名单以外的流量由客户端统一交给代理；没有按应用、国家、广告拦截划分的规则或代理组。
 
-GitHub Actions 每天北京时间 06:30 构建，也支持手动触发。仅从固定的三个上游数据文件读取内容，生成并校验后才发布；下载或校验失败时保留上一份有效数据。构建的实际开始时间可能因 GitHub 排队延后。
+GitHub Actions 每天北京时间 06:30 构建，也支持手动触发。仅从固定的四个上游数据文件读取内容，生成并校验后才发布；下载或校验失败时保留上一份有效数据。构建的实际开始时间可能因 GitHub 排队延后。
 
 release 分支仅包含：
 
@@ -13,4 +13,6 @@ release 分支仅包含：
 
 客户端模板、订阅、代理节点和凭据均不由本仓库构建或发布，数据更新不会覆盖客户端的分流结构。
 
-数据来源为 Loyalsoldier/v2ray-rules-dat 的直连域名、Loyalsoldier/domain-list-custom 的私有域名，以及 Loyalsoldier/geoip 的中国 IP 列表。域名转换范围与原 Surge 项目保持一致，不展开 regexp/keyword 记录。
+数据来源为 Loyalsoldier/v2ray-rules-dat 的直连和海外域名、Loyalsoldier/domain-list-custom 的私有域名，以及 Loyalsoldier/geoip 的中国 IP 列表。海外名单只用于剔除直连名单中有冲突的条目，不单独发布。域名转换范围与原 Surge 项目保持一致，不展开 regexp/keyword 记录。
+
+客户端用代理内的加密 DNS 完成未分类域名的 IP 判断，国内 IP 仍走直连。Google 静态资源等海外域名不会因为被上游标为“可直连”而绕过代理。构建中验证国内和海外代表域名；出现分类回退时停止发布。

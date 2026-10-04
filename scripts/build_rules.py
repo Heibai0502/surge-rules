@@ -11,6 +11,7 @@ import urllib.request
 
 SOURCES = {
     'china_domains': 'https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt',
+    'foreign_domains': 'https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/proxy-list.txt',
     'private_domains': 'https://raw.githubusercontent.com/Loyalsoldier/domain-list-custom/release/private.txt',
     'china_ip': 'https://raw.githubusercontent.com/Loyalsoldier/geoip/release/text/cn.txt',
 }
@@ -55,10 +56,40 @@ def domains(text):
     return exact, suffix
 
 
+def parents(domain):
+    parts = domain.split('.')
+    return ['.'.join(parts[index:]) for index in range(len(parts))]
+
+
+def exclude_foreign(exact, suffix, foreign_exact, foreign_suffix):
+    foreign_parents = {parent for domain in foreign_exact | foreign_suffix for parent in parents(domain)}
+    exact = {domain for domain in exact if domain not in foreign_exact
+             and not any(parent in foreign_suffix for parent in parents(domain))}
+    # A positive suffix cannot express a foreign child exception. Remove such
+    # broad entries (including the .cn umbrella); specific domestic domains and
+    # China IPs still match the same DIRECT dataset, with proxy DNS for IP lookup.
+    suffix = {domain for domain in suffix if domain not in foreign_parents
+              and not any(parent in foreign_suffix for parent in parents(domain))}
+    return exact, suffix
+
+
+def matches(domain, exact, suffix):
+    return domain in exact or any(parent in suffix for parent in parents(domain))
+
+
 def main():
     raw = {name: fetch(url) for name, url in SOURCES.items()}
     exact, suffix = domains(raw['china_domains'])
     assert len(exact) + len(suffix) > 1000, 'china_domain_dataset_empty_or_truncated'
+    foreign_exact, foreign_suffix = domains(raw['foreign_domains'])
+    assert len(foreign_exact) + len(foreign_suffix) > 1000, 'foreign_domain_dataset_empty_or_truncated'
+    before_domain_count = len(exact) + len(suffix)
+    exact, suffix = exclude_foreign(exact, suffix, foreign_exact, foreign_suffix)
+    excluded_count = before_domain_count - len(exact) - len(suffix)
+    assert not any(matches(domain, exact, suffix) for domain in
+                   ('www.gstatic.com', 'www.google.com', 'www.wikipedia.org', 'api.github.com')), 'foreign_domain_would_be_direct'
+    assert all(matches(domain, exact, suffix) for domain in
+               ('www.baidu.com', 'www.qq.com', 'www.taobao.com', 'www.jd.com')), 'domestic_domain_would_be_proxied'
     private_exact, private_suffix = domains(raw['private_domains'])
     assert private_exact or private_suffix, 'private_domain_dataset_empty'
     exact.update(private_exact)
@@ -83,7 +114,7 @@ def main():
     rules = ['# Domestic and local DIRECT dataset. Other traffic uses the client proxy.']
     rules += ['DOMAIN,' + name for name in sorted(exact)]
     rules += ['DOMAIN-SUFFIX,' + name for name in sorted(suffix)]
-    rules += [('IP-CIDR6' if ':' in network else 'IP-CIDR') + ',' + network + ',no-resolve'
+    rules += [('IP-CIDR6' if ':' in network else 'IP-CIDR') + ',' + network
               for network in ordered_networks]
     (output / 'direct.list').write_text('\n'.join(rules) + '\n')
     source = {'version': 3, 'rules': [{'domain': sorted(exact)},
@@ -95,6 +126,7 @@ def main():
         'scope': 'domestic_and_local_direct_only', 'sources': SOURCES,
         'source_sha256': {name: hashlib.sha256(text.encode()).hexdigest() for name, text in raw.items()},
         'counts': {'exact_domains': len(exact), 'suffix_domains': len(suffix), 'ip_prefixes': len(networks)},
+        'excluded_overseas_domain_entries': excluded_count,
         'files': {name: hashlib.sha256((output / name).read_bytes()).hexdigest()
                   for name in ['direct.list', 'direct.json']},
         'application_or_country_groups_generated': False,
