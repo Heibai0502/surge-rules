@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build only the direct-routing dataset; never copy upstream templates."""
+"""Build one verified routing-data generation; never copy upstream templates."""
 import datetime
 import hashlib
 import ipaddress
@@ -104,8 +104,22 @@ def advertising_domains(text):
     return sorted(exact), sorted(suffix)
 
 
-def main():
-    raw = {name: fetch(url) for name, url in SOURCES.items()}
+def private_domains(text):
+    exact, suffix = domains(text)
+    local_tlds = {'internal', 'localdomain', 'example', 'invalid', 'localhost', 'test', 'local', 'lan'}
+    if not 1 <= len(exact) + len(suffix) <= 10000:
+        raise ValueError('private_dataset_empty_or_oversized')
+    for name in exact | suffix:
+        if ('.' not in name and name not in local_tlds) or name in {'com.cn', 'net.cn', 'org.cn', 'co.uk', 'com.au', 'co.jp'}:
+            raise ValueError('private_domain_too_broad')
+    for host in ('www.google.com', 'api.github.com', 'www.apple.com', 'icloud.com',
+                 'huoshua.net', 'claude.ai', 'anthropic.com', 'claude.com'):
+        if matches(host, exact, suffix):
+            raise ValueError('private_overrides_public_service')
+    return exact, suffix
+
+
+def build(raw, output):
     ad_exact, ad_suffix = advertising_domains(raw['advertising_domains'])
     exact, suffix = domains(raw['china_domains'])
     assert len(exact) + len(suffix) > 1000, 'china_domain_dataset_empty_or_truncated'
@@ -118,8 +132,7 @@ def main():
                    ('www.gstatic.com', 'www.google.com', 'www.wikipedia.org', 'api.github.com')), 'foreign_domain_would_be_direct'
     assert all(matches(domain, exact, suffix) for domain in
                ('www.baidu.com', 'www.qq.com', 'www.taobao.com', 'www.jd.com')), 'domestic_domain_would_be_proxied'
-    private_exact, private_suffix = domains(raw['private_domains'])
-    assert private_exact or private_suffix, 'private_domain_dataset_empty'
+    private_exact, private_suffix = private_domains(raw['private_domains'])
     exact.update(private_exact)
     suffix.update(private_suffix | {'local', 'lan', 'home.arpa'})
     exact.add('localhost')
@@ -137,7 +150,7 @@ def main():
     ordered_networks = sorted(networks, key=lambda n: (ipaddress.ip_network(n).version,
                                                       int(ipaddress.ip_network(n).network_address),
                                                       ipaddress.ip_network(n).prefixlen))
-    output = Path('generated')
+    output = Path(output)
     output.mkdir(exist_ok=True)
     rules = ['# Domestic and local DIRECT dataset. Other traffic uses the client proxy.']
     rules += ['DOMAIN,' + name for name in sorted(exact)]
@@ -146,6 +159,10 @@ def main():
               for network in ordered_networks]
     (output / 'direct.list').write_text('\n'.join(rules) + '\n')
     (output / 'direct.domains').write_text('\n'.join(sorted(exact) + ['.' + name for name in sorted(suffix)]) + '\n')
+    (output / 'private.domains').write_text('\n'.join(sorted(private_exact) + ['.' + name for name in sorted(private_suffix)]) + '\n')
+    # Preserve the exact foreign input used for conflict removal in this build.
+    # Consumers must not combine this generation with a moving upstream branch.
+    (output / 'proxy-source.txt').write_text(raw['foreign_domains'])
     (output / 'direct.ipcidr').write_text('\n'.join(
         ('IP-CIDR6' if ':' in network else 'IP-CIDR') + ',' + network for network in ordered_networks) + '\n')
     source = {'version': 3, 'rules': [{'domain': sorted(exact)},
@@ -162,17 +179,25 @@ def main():
         'scope': 'domestic_direct_and_adblock', 'sources': SOURCES,
         'source_sha256': {name: hashlib.sha256(text.encode()).hexdigest() for name, text in raw.items()},
         'counts': {'exact_domains': len(exact), 'suffix_domains': len(suffix), 'ip_prefixes': len(networks),
-                   'adblock_domains': len(ad_exact) + len(ad_suffix)},
+                   'adblock_domains': len(ad_exact) + len(ad_suffix),
+                   'private_domains': len(private_exact) + len(private_suffix)},
         'excluded_overseas_domain_entries': excluded_count,
         'files': {name: hashlib.sha256((output / name).read_bytes()).hexdigest()
                   for name in ['direct.list', 'direct.json', 'direct.domains', 'direct.ipcidr',
-                               'reject.domains', 'reject.list', 'reject.json']},
+                               'reject.domains', 'reject.list', 'reject.json', 'private.domains', 'proxy-source.txt']},
         'application_or_country_groups_generated': False,
         'client_templates_generated': False,
     }
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     assert set(p.name for p in output.iterdir()) == {'direct.list', 'direct.json', 'direct.domains', 'direct.ipcidr',
-                                                  'reject.domains', 'reject.list', 'reject.json', 'manifest.json'}
+                                                  'reject.domains', 'reject.list', 'reject.json', 'manifest.json',
+                                                  'private.domains', 'proxy-source.txt'}
+    return manifest
+
+
+def main():
+    raw = {name: fetch(url) for name, url in SOURCES.items()}
+    manifest = build(raw, Path('generated'))
     print(json.dumps(manifest['counts']))
 
 

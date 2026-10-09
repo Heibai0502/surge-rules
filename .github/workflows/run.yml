@@ -1,4 +1,4 @@
-name: Build domestic direct and advertising rules
+name: Build verified routing and advertising rules
 
 on:
   workflow_dispatch:
@@ -23,15 +23,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Build and validate the direct dataset
-        run: python3 scripts/build_rules.py
+        run: |
+          python3 -B -m unittest discover -s scripts -p 'test_*.py'
+          python3 scripts/build_rules.py
       - name: Publish only the validated dataset
         run: |
           publish_dir=$(mktemp -d)
           git worktree add --detach "$publish_dir" HEAD
           git -C "$publish_dir" switch --orphan direct-rules-release
-          cp generated/direct.list generated/direct.json generated/direct.domains generated/direct.ipcidr generated/reject.domains generated/reject.list generated/reject.json generated/manifest.json LICENSE "$publish_dir/"
+          cp generated/direct.list generated/direct.json generated/direct.domains generated/direct.ipcidr generated/reject.domains generated/reject.list generated/reject.json generated/private.domains generated/proxy-source.txt generated/manifest.json LICENSE "$publish_dir/"
           git -C "$publish_dir" config user.name github-actions[bot]
           git -C "$publish_dir" config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git -C "$publish_dir" add direct.list direct.json direct.domains direct.ipcidr reject.domains reject.list reject.json manifest.json LICENSE
-          git -C "$publish_dir" commit -m "Publish validated direct and advertising datasets"
+          git -C "$publish_dir" add direct.list direct.json direct.domains direct.ipcidr reject.domains reject.list reject.json private.domains proxy-source.txt manifest.json LICENSE
+          git -C "$publish_dir" commit -m "Publish one validated routing-data generation"
           git -C "$publish_dir" push origin HEAD:release --force
