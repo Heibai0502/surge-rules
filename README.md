@@ -1,22 +1,11 @@
-# 国内直连规则数据
+# 国内直连与广告过滤规则数据
 
-本仓库基于 Loyalsoldier/surge-rules，只生成国内域名、国内 IP 及本地网络的直连名单。名单以外的流量由客户端统一交给代理；没有按应用、国家、广告拦截划分的规则或代理组。
+本仓库读取 Loyalsoldier 的直连、海外、私有域名、中国 IP 和广告 reject-list.txt 五份固定来源。广告名单单独生成，不增加应用、国家或广告代理组。发布数据不包含节点、模板、手动组或凭据。
 
-GitHub Actions 每天北京时间 06:30 构建，也支持手动触发。仅从固定的四个上游数据文件读取内容，生成并校验后才发布；下载或校验失败时保留上一份有效数据。构建的实际开始时间可能因 GitHub 排队延后。
+GitHub 工作流每天北京时间 06:30 计划构建，VpsCT 每 4 小时检查并转换资源，客户端每 24 小时更新。计划时间不等于每次实际成功时间。下载失败、广告名单为空、过大、含过宽条目或误覆盖受保护网站时停止发布，保留上一份有效数据。
 
-release 分支仅包含：
+release 包含 direct.list、direct.json、direct.domains、direct.ipcidr、reject.domains、reject.list、reject.json、manifest.json 和 LICENSE。manifest 记录同一代来源、条数、时间和逐文件校验值。下载超过 16MiB 会拒绝。
 
-- `direct.list`：Surge、Clash/Mihomo、小火箭使用的 classical RULE-SET。
-- `direct.json`：sing-box 使用的 source rule-set。
-- `direct.domains`：Surge 的国内域名快速匹配和国内 DNS 选择。
-- `direct.ipcidr`：Surge 的国内 IP 兜底匹配。
-- `manifest.json`：来源、时间、数量与校验值。
-- `LICENSE`：许可证。
+完整订阅携带广告过滤；管理员可在 VpsCT 运行页启停过滤、填写误拦白名单，修改后需刷新整份订阅。白名单只跳过广告拦截，仍按原分流处理。raw / URI 无法携带过滤规则。
 
-客户端模板、订阅、代理节点和凭据均不由本仓库构建或发布，数据更新不会覆盖客户端的分流结构。
-
-Surge 将国内域名放在 IP 规则之前，并用同一域名清单选择本地加密 DNS。这样国内域名无需先绕到海外解析，也不会因为海外 DNS 返回的 CDN 地址导致直连变慢。以上文件都是同一份国内分类数据的格式输出，没有按应用或国家生成规则。
-
-数据来源为 Loyalsoldier/v2ray-rules-dat 的直连和海外域名、Loyalsoldier/domain-list-custom 的私有域名，以及 Loyalsoldier/geoip 的中国 IP 列表。海外名单只用于剔除直连名单中有冲突的条目，不单独发布。域名转换范围与原 Surge 项目保持一致，不展开 regexp/keyword 记录。
-
-客户端用代理内的加密 DNS 完成未分类域名的 IP 判断，国内 IP 仍走直连。Google 静态资源等海外域名不会因为被上游标为“可直连”而绕过代理。构建中验证国内和海外代表域名；出现分类回退时停止发布。
+DNS/域名规则不能可靠过滤与正常内容共用域名的视频广告，不承诺全站无广告。服务器转换、策略和实体手机验收由父项目维护；源数据发布成功不能代替客户端验收。

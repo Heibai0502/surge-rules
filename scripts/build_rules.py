@@ -14,6 +14,7 @@ SOURCES = {
     'foreign_domains': 'https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/proxy-list.txt',
     'private_domains': 'https://raw.githubusercontent.com/Loyalsoldier/domain-list-custom/release/private.txt',
     'china_ip': 'https://raw.githubusercontent.com/Loyalsoldier/geoip/release/text/cn.txt',
+    'advertising_domains': 'https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/reject-list.txt',
 }
 LOCAL_NETWORKS = [
     '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8',
@@ -28,8 +29,11 @@ def fetch(url):
         try:
             request = urllib.request.Request(url, headers={'User-Agent': 'vpsct-direct-rules-builder'})
             with urllib.request.urlopen(request, timeout=30) as response:
-                data = response.read(16 * 1024 * 1024)
+                limit = 16 * 1024 * 1024
+                data = response.read(limit + 1)
                 assert response.status == 200 and data
+                if len(data) > limit:
+                    raise ValueError('rule_source_too_large')
                 return data.decode('utf-8')
         except Exception:
             if attempt == 2:
@@ -77,8 +81,32 @@ def matches(domain, exact, suffix):
     return domain in exact or any(parent in suffix for parent in parents(domain))
 
 
+def advertising_domains(text):
+    exact, suffix = domains(text)
+    if not 1000 <= len(exact) + len(suffix) <= 500000:
+        raise ValueError('advertising_dataset_empty_or_oversized')
+    for name in exact | suffix:
+        if '.' not in name or name in {'com.cn', 'net.cn', 'org.cn', 'co.uk', 'com.au', 'co.jp'}:
+            raise ValueError('advertising_domain_too_broad')
+        try:
+            ipaddress.ip_address(name)
+        except ValueError:
+            pass
+        else:
+            raise ValueError('advertising_ip_forbidden')
+    for host in ('www.baidu.com', 'www.qq.com', 'login.weixin.qq.com', 'www.taobao.com', 'www.jd.com',
+                 'www.google.com', 'api.github.com', 'www.apple.com', 'login.microsoftonline.com',
+                 'huoshua.net', 'claude.ai', 'anthropic.com', 'claude.com'):
+        if matches(host, exact, suffix):
+            raise ValueError('advertising_blocks_protected_site')
+    if not matches('ad.doubleclick.net', exact, suffix):
+        raise ValueError('advertising_coverage_lost')
+    return sorted(exact), sorted(suffix)
+
+
 def main():
     raw = {name: fetch(url) for name, url in SOURCES.items()}
+    ad_exact, ad_suffix = advertising_domains(raw['advertising_domains'])
     exact, suffix = domains(raw['china_domains'])
     assert len(exact) + len(suffix) > 1000, 'china_domain_dataset_empty_or_truncated'
     foreign_exact, foreign_suffix = domains(raw['foreign_domains'])
@@ -124,19 +152,27 @@ def main():
                                      {'domain_suffix': sorted(suffix)},
                                      {'ip_cidr': ordered_networks}]}
     (output / 'direct.json').write_text(json.dumps(source, separators=(',', ':')) + '\n')
+    (output / 'reject.domains').write_text('\n'.join(ad_exact + ['.' + name for name in ad_suffix]) + '\n')
+    (output / 'reject.list').write_text('\n'.join(['DOMAIN,' + name for name in ad_exact] +
+                                                ['DOMAIN-SUFFIX,' + name for name in ad_suffix]) + '\n')
+    (output / 'reject.json').write_text(json.dumps({'version': 3, 'rules': [
+        {'domain': ad_exact}, {'domain_suffix': ad_suffix}]}, separators=(',', ':')) + '\n')
     manifest = {
         'generated_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        'scope': 'domestic_and_local_direct_only', 'sources': SOURCES,
+        'scope': 'domestic_direct_and_adblock', 'sources': SOURCES,
         'source_sha256': {name: hashlib.sha256(text.encode()).hexdigest() for name, text in raw.items()},
-        'counts': {'exact_domains': len(exact), 'suffix_domains': len(suffix), 'ip_prefixes': len(networks)},
+        'counts': {'exact_domains': len(exact), 'suffix_domains': len(suffix), 'ip_prefixes': len(networks),
+                   'adblock_domains': len(ad_exact) + len(ad_suffix)},
         'excluded_overseas_domain_entries': excluded_count,
         'files': {name: hashlib.sha256((output / name).read_bytes()).hexdigest()
-                  for name in ['direct.list', 'direct.json', 'direct.domains', 'direct.ipcidr']},
+                  for name in ['direct.list', 'direct.json', 'direct.domains', 'direct.ipcidr',
+                               'reject.domains', 'reject.list', 'reject.json']},
         'application_or_country_groups_generated': False,
         'client_templates_generated': False,
     }
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    assert set(p.name for p in output.iterdir()) == {'direct.list', 'direct.json', 'direct.domains', 'direct.ipcidr', 'manifest.json'}
+    assert set(p.name for p in output.iterdir()) == {'direct.list', 'direct.json', 'direct.domains', 'direct.ipcidr',
+                                                  'reject.domains', 'reject.list', 'reject.json', 'manifest.json'}
     print(json.dumps(manifest['counts']))
 
 

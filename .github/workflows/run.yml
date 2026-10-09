@@ -1,4 +1,4 @@
-name: Build domestic direct rules only
+name: Build domestic direct and advertising rules
 
 on:
   workflow_dispatch:
@@ -29,9 +29,9 @@ jobs:
           publish_dir=$(mktemp -d)
           git worktree add --detach "$publish_dir" HEAD
           git -C "$publish_dir" switch --orphan direct-rules-release
-          cp generated/direct.list generated/direct.json generated/direct.domains generated/direct.ipcidr generated/manifest.json LICENSE "$publish_dir/"
+          cp generated/direct.list generated/direct.json generated/direct.domains generated/direct.ipcidr generated/reject.domains generated/reject.list generated/reject.json generated/manifest.json LICENSE "$publish_dir/"
           git -C "$publish_dir" config user.name github-actions[bot]
           git -C "$publish_dir" config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git -C "$publish_dir" add direct.list direct.json direct.domains direct.ipcidr manifest.json LICENSE
-          git -C "$publish_dir" commit -m "Publish domestic and local DIRECT dataset"
+          git -C "$publish_dir" add direct.list direct.json direct.domains direct.ipcidr reject.domains reject.list reject.json manifest.json LICENSE
+          git -C "$publish_dir" commit -m "Publish validated direct and advertising datasets"
           git -C "$publish_dir" push origin HEAD:release --force
