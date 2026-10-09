@@ -155,8 +155,8 @@ def main():
     (output / 'reject.domains').write_text('\n'.join(ad_exact + ['.' + name for name in ad_suffix]) + '\n')
     (output / 'reject.list').write_text('\n'.join(['DOMAIN,' + name for name in ad_exact] +
                                                 ['DOMAIN-SUFFIX,' + name for name in ad_suffix]) + '\n')
-    (output / 'reject.json').write_text(json.dumps({'version': 3, 'rules': [
-        {'domain': ad_exact}, {'domain_suffix': ad_suffix}]}, separators=(',', ':')) + '\n')
+    ad_conditions = ([{'domain': ad_exact}] if ad_exact else []) + ([{'domain_suffix': ad_suffix}] if ad_suffix else [])
+    (output / 'reject.json').write_text(json.dumps({'version': 3, 'rules': ad_conditions}, separators=(',', ':')) + '\n')
     manifest = {
         'generated_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'scope': 'domestic_direct_and_adblock', 'sources': SOURCES,
