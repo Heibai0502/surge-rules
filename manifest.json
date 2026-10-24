@@ -1,0 +1,39 @@
+{
+  "generated_at_utc": "2026-10-24T00:56:27.599695+00:00",
+  "scope": "domestic_direct_and_adblock",
+  "sources": {
+    "china_domains": "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt",
+    "foreign_domains": "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/proxy-list.txt",
+    "private_domains": "https://raw.githubusercontent.com/Loyalsoldier/domain-list-custom/release/private.txt",
+    "china_ip": "https://raw.githubusercontent.com/Loyalsoldier/geoip/release/text/cn.txt",
+    "advertising_domains": "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/reject-list.txt"
+  },
+  "source_sha256": {
+    "china_domains": "5c4ba827a886ebab6ef13f3b3530a0e60e864a9352c76d9ca1b28ffdc78a23a8",
+    "foreign_domains": "4bc439674e9b201c439bc95c678f3f1f7994acc507d56cda0c64623aa7be2f93",
+    "private_domains": "e47e0f71fb6bc46d40a4178ee356c9d615512ccef25ba00838ca0e66e332ab34",
+    "china_ip": "954685d944c08ecb81b87a3709908e2a326742a359ac093106ebdc6fb63ee58f",
+    "advertising_domains": "15bed5340e8347cc0fd7ec0d388e3cddc52a9a97574b5611acba287e6727bb40"
+  },
+  "counts": {
+    "exact_domains": 59,
+    "suffix_domains": 109574,
+    "ip_prefixes": 10024,
+    "adblock_domains": 200290,
+    "private_domains": 132
+  },
+  "excluded_overseas_domain_entries": 731,
+  "files": {
+    "direct.list": "21991d0d9a5d8b37c44f0ef5ae5a4f8fdb7aa69b2c26066f640dbb63b65ec31a",
+    "direct.json": "d2282fe8c863eef90d647c180db062739324c88e8d83d79b214648c92f1a3454",
+    "direct.domains": "f2b6f2304262850b27d2fa7e1819d4561386fa6b54b61522068e28a979a4e3e9",
+    "direct.ipcidr": "b5a693fffb2b20d3bfbd97d32721577d0d4ce91cf21503184f2c65d61da918d0",
+    "reject.domains": "8cd3870160ace29ee634b4e9aba1cac9dcc2100cf1b87bc679bd59aa4f7ddf48",
+    "reject.list": "1ef5a444f9796dfbcd6e4540558580cb440ada2082f43893c3a7eec0554139e7",
+    "reject.json": "1f0e691c8442265f26d8f791d4326a73c35edc89b1e571d88e1b95bd079d5027",
+    "private.domains": "d2028cded1294f9851d04263e111df9e94c4b2d262d855e778a8cf77f552392c",
+    "proxy-source.txt": "4bc439674e9b201c439bc95c678f3f1f7994acc507d56cda0c64623aa7be2f93"
+  },
+  "application_or_country_groups_generated": false,
+  "client_templates_generated": false
+}
